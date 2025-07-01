@@ -61,7 +61,7 @@ const OrdersHistory = ({ currentUser }) => {
     
     timeoutRef.current = setTimeout(() => {
       loadOrders();
-    }, 700); // 500ms задержка
+    }, 800); // 800ms задержка
   }, [filters]);
 
   // Эффект для debounce загрузки при изменении фильтров
