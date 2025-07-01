@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /payment/
+Disallow: /profile/
+Disallow: /cart/
+Disallow: /checkout/
+Allow: /
+
+Sitemap: https://russianpeptide.netlify.app/sitemap.xml

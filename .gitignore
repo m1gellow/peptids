@@ -1,0 +1,77 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data
+node_modules/
+dist/
+.temp/
+.cache/
+*.tmp
+*.bak
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Editor directories and files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+
+# Build files
+*.tsbuildinfo
+.next/
+out/
+build/
+.serverless/
+
+# Debugger files
+.vscode/
+*.vscode/
+
+# Dependency directories
+jspm_packages/
+bower_components/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Optional lockfile
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Optional local development files
+.history/
+*.local
+
+# macOS files
+.DS_Store
+._*
+
+# Windows files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux files
+*~

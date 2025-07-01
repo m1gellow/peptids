@@ -1,0 +1,365 @@
+import { corsHeaders } from "../_shared/cors.ts";
+
+// Константы для CDEK API
+const CDEK_CONFIG = {
+  // Тестовые ключи (для боевого использования замените на ваши реальные ключи)
+  TEST_CLIENT_ID: 'EMscd6r9JnFiQ3bLoyjJY6eM78JrJceI',
+  TEST_CLIENT_SECRET: 'PjLZkKBHEiLK3YsjtNrt3TGNG0ahs3kG',
+  
+  // URLs для API
+  TEST_API_URL: 'https://api.edu.cdek.ru/v2',
+  PROD_API_URL: 'https://api.cdek.ru/v2',
+  
+  // Настройки
+  USE_TEST_ENV: true, // Переключить на false для боевого использования
+  MARKUP_PERCENTAGE: 15, // 15% наценка
+  
+  // Популярные тарифы CDEK
+  TARIFFS: {
+    EXPRESS_DOOR_TO_DOOR: 1,      // Экспресс лайт дверь-дверь
+    EXPRESS_WAREHOUSE: 10,         // Экспресс лайт склад-склад  
+    ECONOMY_DOOR_TO_DOOR: 136,     // Посылка дверь-дверь
+    ECONOMY_WAREHOUSE: 138,        // Посылка склад-склад
+  }
+};
+
+// Список основных городов России с кодами CDEK
+const CITIES_CODES = {
+  "Москва": 44,
+  "Санкт-Петербург": 137,
+  "Новосибирск": 270,
+  "Екатеринбург": 250,
+  "Казань": 172,
+  "Нижний Новгород": 24,
+  "Челябинск": 56,
+  "Самара": 51,
+  "Омск": 66,
+  "Ростов-на-Дону": 39,
+  "Уфа": 102,
+  "Красноярск": 62,
+  "Пермь": 48,
+  "Воронеж": 193,
+  "Волгоград": 23,
+  "Краснодар": 35,
+  "Тюмень": 81,
+  "Саратов": 243,
+  "Тольятти": 969,
+  "Ижевск": 7,
+  "Барнаул": 4,
+  "Ульяновск": 195,
+  "Иркутск": 63,
+  "Хабаровск": 87,
+  "Ярославль": 16,
+  "Владивосток": 75,
+  "Махачкала": 1106,
+  "Томск": 82,
+  "Оренбург": 67,
+  "Кемерово": 64,
+  "Новокузнецк": 71,
+  "Рязань": 50,
+  "Пенза": 49,
+  "Астрахань": 17,
+  "Липецк": 25,
+  "Тула": 15,
+  "Киров": 254,
+  "Чебоксары": 45,
+  "Калининград": 152,
+  "Курск": 20,
+  "Сочи": 1438,
+  "Белгород": 565,
+  "Бирюч": 1015, // Добавлен специально для пользователя
+};
+
+// Получение токена авторизации
+async function getAccessToken() {
+  const config = CDEK_CONFIG;
+  const apiUrl = config.USE_TEST_ENV ? config.TEST_API_URL : config.PROD_API_URL;
+  
+  try {
+    const authData = new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: config.TEST_CLIENT_ID,
+      client_secret: config.TEST_CLIENT_SECRET
+    });
+
+    const response = await fetch(`${apiUrl}/oauth/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: authData.toString()
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ошибка авторизации CDEK: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.access_token;
+  } catch (error) {
+    console.error('Ошибка получения токена CDEK:', error);
+    throw error;
+  }
+}
+
+// Расчет стоимости доставки через CDEK
+async function calculateCdekDelivery(fromCityCode, toCityCode, weight, dimensions = {}) {
+  const config = CDEK_CONFIG;
+  const apiUrl = config.USE_TEST_ENV ? config.TEST_API_URL : config.PROD_API_URL;
+  
+  try {
+    const accessToken = await getAccessToken();
+    
+    // Формируем payload для расчета тарифов
+    const payload = {
+      type: 1, // Тип заказа: 1 - "интернет-магазин", 2 - "доставка"
+      from_location: {
+        code: fromCityCode
+      },
+      to_location: {
+        code: toCityCode
+      },
+      packages: [{
+        height: dimensions.height || 10, // см
+        length: dimensions.length || 20, // см
+        width: dimensions.width || 15,   // см
+        weight: weight || 1000          // грамм
+      }]
+    };
+
+    const response = await fetch(`${apiUrl}/calculator/tariff`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Ошибка API CDEK:', response.status, errorText);
+      throw new Error(`Ошибка API CDEK: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.tariff_codes || data.tariff_codes.length === 0) {
+      throw new Error('Не найдены доступные тарифы для указанного направления');
+    }
+
+    // Применяем наценку и возвращаем результаты
+    const markup = config.MARKUP_PERCENTAGE / 100;
+    const tariffs = data.tariff_codes.map(tariff => ({
+      tariffCode: tariff.tariff_code,
+      tariffName: tariff.tariff_name,
+      description: tariff.tariff_description,
+      deliveryMode: tariff.delivery_mode,
+      originalCost: tariff.delivery_sum,
+      finalCost: Math.ceil(tariff.delivery_sum * (1 + markup)),
+      minDays: tariff.period_min,
+      maxDays: tariff.period_max,
+      markup: config.MARKUP_PERCENTAGE
+    }));
+
+    return {
+      success: true,
+      tariffs,
+      fromCity: fromCityCode,
+      toCity: toCityCode,
+      weight,
+      dimensions
+    };
+
+  } catch (error) {
+    console.error('Ошибка расчета доставки CDEK:', error);
+    throw error;
+  }
+}
+
+// Получение кода города по названию
+function getCityCodeByName(cityName) {
+  // Нормализуем название города (убираем лишние пробелы, приводим к единому регистру)
+  const normalizedName = cityName.trim();
+  
+  // Ищем точное совпадение
+  const exactMatch = Object.keys(CITIES_CODES).find(
+    city => city.toLowerCase() === normalizedName.toLowerCase()
+  );
+  
+  if (exactMatch) {
+    return CITIES_CODES[exactMatch];
+  }
+
+  // Ищем частичное совпадение
+  const partialMatch = Object.keys(CITIES_CODES).find(
+    city => city.toLowerCase().includes(normalizedName.toLowerCase()) ||
+            normalizedName.toLowerCase().includes(city.toLowerCase())
+  );
+  
+  return partialMatch ? CITIES_CODES[partialMatch] : null;
+}
+
+// Получение списка всех доступных городов
+function getAllCities() {
+  return Object.keys(CITIES_CODES).sort();
+}
+
+// Основная функция Edge Function
+Deno.serve(async (req) => {
+  // Обработка CORS preflight запросов
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: corsHeaders,
+      status: 204
+    });
+  }
+
+  try {
+    const url = new URL(req.url);
+    
+    // Получение списка городов
+    if (url.pathname.endsWith('/cities')) {
+      const cities = getAllCities();
+      return new Response(JSON.stringify({
+        cities,
+        total: cities.length
+      }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        },
+        status: 200
+      });
+    }
+
+    // Получение кода города по названию
+    if (url.pathname.endsWith('/city-code')) {
+      const cityName = url.searchParams.get('name');
+      if (!cityName) {
+        return new Response(JSON.stringify({
+          error: 'Не указано название города'
+        }), {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          },
+          status: 400
+        });
+      }
+
+      const cityCode = getCityCodeByName(cityName);
+      if (!cityCode) {
+        return new Response(JSON.stringify({
+          error: 'Город не найден в базе данных',
+          availableCities: getAllCities().slice(0, 10) // Показываем первые 10 городов
+        }), {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          },
+          status: 404
+        });
+      }
+
+      return new Response(JSON.stringify({
+        cityName,
+        cityCode
+      }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        },
+        status: 200
+      });
+    }
+
+    // Расчет стоимости доставки
+    if (req.method === 'POST') {
+      const {
+        fromCity,
+        toCity,
+        weight = 1000,
+        dimensions = {}
+      } = await req.json();
+
+      if (!fromCity || !toCity) {
+        return new Response(JSON.stringify({
+          error: 'Не указаны города отправления или назначения'
+        }), {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          },
+          status: 400
+        });
+      }
+
+      // Получаем коды городов
+      const fromCityCode = getCityCodeByName(fromCity);
+      const toCityCode = getCityCodeByName(toCity);
+
+      if (!fromCityCode || !toCityCode) {
+        return new Response(JSON.stringify({
+          error: 'Один или оба города не найдены в базе данных',
+          fromCityFound: !!fromCityCode,
+          toCityFound: !!toCityCode,
+          availableCities: getAllCities().slice(0, 10)
+        }), {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          },
+          status: 400
+        });
+      }
+
+      // Валидация веса
+      const validWeight = Math.max(100, Math.min(50000, parseInt(weight) || 1000));
+
+      const result = await calculateCdekDelivery(
+        fromCityCode,
+        toCityCode,
+        validWeight,
+        dimensions
+      );
+
+      return new Response(JSON.stringify(result), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        },
+        status: 200
+      });
+    }
+
+    // Неподдерживаемый метод или путь
+    return new Response(JSON.stringify({
+      error: 'Метод не поддерживается',
+      availableEndpoints: [
+        'GET /cities - получить список городов',
+        'GET /city-code?name=Название - получить код города',
+        'POST / - рассчитать стоимость доставки'
+      ]
+    }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      },
+      status: 405
+    });
+
+  } catch (error) {
+    console.error('Ошибка в edge function:', error);
+    return new Response(JSON.stringify({
+      error: error.message || 'Внутренняя ошибка сервера',
+      details: CDEK_CONFIG.USE_TEST_ENV ? error.stack : undefined
+    }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      },
+      status: 500
+    });
+  }
+});
