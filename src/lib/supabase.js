@@ -1,8 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
+// VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6cGlscHZkcHlnbHNjZGdveGRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2MDU3NjUsImV4cCI6MjA2NjE4MTc2NX0.pT1W_5ySCLQe9b-vI32GTK_UOodQ5X3sq1IT2KyKkbw
+// VITE_SUPABASE_URL=https://yzpilpvdpyglscdgoxdp.supabase.co
+
 // Получение переменных окружения
-export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+export const supabaseUrl = "https://yzpilpvdpyglscdgoxdp.supabase.co";
+export const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6cGlscHZkcHlnbHNjZGdveGRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2MDU3NjUsImV4cCI6MjA2NjE4MTc2NX0.pT1W_5ySCLQe9b-vI32GTK_UOodQ5X3sq1IT2KyKkbw";
 
 // Проверка наличия переменных окружения
 if (!supabaseUrl || !supabaseAnonKey) {
