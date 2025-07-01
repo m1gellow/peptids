@@ -12,8 +12,8 @@ import AvatarImage from '../components/ui/AvatarImage';
 import AuthModal from '../components/auth/AuthModal';
 import OrdersHistory from '../components/orders/OrdersHistory';
 import UserFeedbackList from '../components/feedback/UserFeedbackList';
-import { showNotification, showConfirmation } from '../utils/telegramUtils';
-import { uploadImageFromUrl, uploadFile } from '../utils/storageUtils';
+import { showNotification } from '../utils/telegramUtils';
+import { uploadFile } from '../utils/storageUtils';
 import supabase from '../lib/supabase';
 
 
@@ -615,15 +615,15 @@ const ProfilePage = ({ currentUser, onLogout }) => {
                 }}
                 className={`flex-1 py-3 px-2 sm:px-4 text-sm font-medium transition-colors ${
                   activeTab === tab.id
-                    ? 'text-primary border-b-2 border-primary bg-primary-bg/30'
+                    ? 'text-gray-700 border-b-2 border-primary bg-primary-bg/30'
                     : 'text-text-secondary hover:text-primary hover:bg-gray-50'
                 }`}
               >
                 <div className="flex items-center justify-center gap-2">
                   {tab.icon}
-                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="hidden  sm:inline">{tab.label}</span>
                   {tab.id === 'orders' && stats.ordersCount > 0 && (
-                    <span className="bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    <span className={`bg-primary   text-xs rounded-full w-6 h-6 flex items-center justify-center`}>
                       {stats.ordersCount > 99 ? '99+' : stats.ordersCount}
                     </span>
                   )}

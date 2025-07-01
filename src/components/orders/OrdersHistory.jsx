@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FiChevronDown, FiChevronUp, FiPackage } from 'react-icons/fi';
@@ -18,7 +18,6 @@ import {
   canRemoveItemsFromOrder
 } from '../../utils/orderUtils';
 import supabase from '../../lib/supabase';
-
 
 /**
  * Основной компонент истории заказов
@@ -41,6 +40,8 @@ const OrdersHistory = ({ currentUser }) => {
   // Состояния UI
   const [showStats, setShowStats] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+
+  const timeoutRef = useRef(null);
   
   // Фильтры
   const [filters, setFilters] = useState({
@@ -52,27 +53,100 @@ const OrdersHistory = ({ currentUser }) => {
     sortDirection: 'desc'
   });
 
+  // Функция с debounce для загрузки заказов
+  const debouncedLoadOrders = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    timeoutRef.current = setTimeout(() => {
+      loadOrders();
+    }, 700); // 500ms задержка
+  }, [filters]);
+
+  // Эффект для debounce загрузки при изменении фильтров
+  useEffect(() => {
+    debouncedLoadOrders();
+    
+    // Очистка таймаута при размонтировании
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [debouncedLoadOrders]);
+
   // Проверка URL-параметров для автоматического раскрытия заказа
   useEffect(() => {
-    // Получаем ID заказа из URL-параметра
     const urlParams = new URLSearchParams(location.search);
     const orderIdParam = urlParams.get('order');
     
     if (orderIdParam) {
       setExpandedOrder(orderIdParam);
-      // Загружаем историю статусов заказа
       loadOrderHistory(orderIdParam);
     }
   }, [location.search]);
 
-  // Загрузка заказов
+  // Загрузка данных при монтировании
   useEffect(() => {
     if (currentUser) {
       loadOrders();
       loadOrderStats();
       loadOrderGrowth();
     }
-  }, [currentUser, filters]);
+  }, [currentUser]);
+
+  // Загрузка заказов с фильтрацией
+  const loadOrders = async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items (
+            id,
+            product_id,
+            product_name,
+            product_sku,
+            quantity,
+            unit_price,
+            total_price
+          )
+        `)
+        .eq('user_id', currentUser.id);
+
+      if (filters.status) {
+        query = query.eq('status', filters.status);
+      }
+
+      if (filters.dateFrom) {
+        query = query.gte('created_at', filters.dateFrom);
+      }
+
+      if (filters.dateTo) {
+        const endDate = new Date(filters.dateTo);
+        endDate.setHours(23, 59, 59, 999);
+        query = query.lte('created_at', endDate.toISOString());
+      }
+
+      if (filters.search) {
+        query = query.or(`order_number.ilike.%${filters.search}%,customer_name.ilike.%${filters.search}%`);
+      }
+
+      query = query.order(filters.sortBy, { ascending: filters.sortDirection === 'asc' });
+
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Ошибка загрузки заказов:', error);
+      showNotification('Ошибка загрузки заказов');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Загрузка статистики заказов
   const loadOrderStats = async () => {
@@ -100,60 +174,6 @@ const OrdersHistory = ({ currentUser }) => {
       setOrderGrowth(data || []);
     } catch (error) {
       console.error('Ошибка загрузки роста заказов:', error);
-    }
-  };
-
-  // Загрузка заказов с фильтрацией
-  const loadOrders = async () => {
-    setLoading(true);
-    try {
-      let query = supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (
-            id,
-            product_id,
-            product_name,
-            product_sku,
-            quantity,
-            unit_price,
-            total_price
-          )
-        `)
-        .eq('user_id', currentUser.id);
-
-      // Применяем фильтры
-      if (filters.status) {
-        query = query.eq('status', filters.status);
-      }
-
-      if (filters.dateFrom) {
-        query = query.gte('created_at', filters.dateFrom);
-      }
-
-      if (filters.dateTo) {
-        const endDate = new Date(filters.dateTo);
-        endDate.setHours(23, 59, 59, 999);
-        query = query.lte('created_at', endDate.toISOString());
-      }
-
-      if (filters.search) {
-        query = query.or(`order_number.ilike.%${filters.search}%,customer_name.ilike.%${filters.search}%`);
-      }
-
-      // Сортировка
-      query = query.order(filters.sortBy, { ascending: filters.sortDirection === 'asc' });
-
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      setOrders(data || []);
-    } catch (error) {
-      console.error('Ошибка загрузки заказов:', error);
-      showNotification('Ошибка загрузки заказов');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -187,7 +207,6 @@ const OrdersHistory = ({ currentUser }) => {
 
   // Удаление товара из заказа
   const removeOrderItem = async (orderId, orderItemId, orderStatus) => {
-    // Проверяем, можно ли удалять товары при текущем статусе
     if (!canRemoveItemsFromOrder(orderStatus)) {
       showNotification('Нельзя удалять товары из заказа с текущим статусом');
       return;
@@ -202,7 +221,6 @@ const OrdersHistory = ({ currentUser }) => {
 
       if (error) throw error;
 
-      // Обновляем заказы в локальном состоянии
       setOrders(prevOrders => 
         prevOrders.map(order => {
           if (order.id === orderId) {
@@ -216,8 +234,6 @@ const OrdersHistory = ({ currentUser }) => {
       );
 
       showNotification('Товар удален из заказа');
-      
-      // Перезагружаем статистику
       loadOrderStats();
     } catch (error) {
       console.error('Ошибка удаления товара:', error);
@@ -227,7 +243,6 @@ const OrdersHistory = ({ currentUser }) => {
 
   // Отмена заказа
   const cancelOrder = async (orderId, orderStatus) => {
-    // Проверяем, можно ли отменять заказ с текущим статусом
     if (!canOrderBeCancelled(orderStatus)) {
       showNotification(`Нельзя отменить заказ со статусом "${orderStatuses[orderStatus]?.label || orderStatus}"`);
       return;
@@ -241,7 +256,6 @@ const OrdersHistory = ({ currentUser }) => {
           try {
             setIsDeletingOrder(true);
             
-            // Обновляем статус на "cancelled"
             const { error: updateError } = await supabase
               .from('orders')
               .update({ 
@@ -253,7 +267,6 @@ const OrdersHistory = ({ currentUser }) => {
 
             if (updateError) throw updateError;
 
-            // Обновляем список заказов в локальном состоянии
             setOrders(prevOrders => 
               prevOrders.map(order => {
                 if (order.id === orderId) {
@@ -264,8 +277,6 @@ const OrdersHistory = ({ currentUser }) => {
             );
             
             showNotification('Заказ успешно отменен');
-            
-            // Перезагружаем статистику
             loadOrderStats();
           } catch (error) {
             console.error('Ошибка отмены заказа:', error);
@@ -302,8 +313,6 @@ const OrdersHistory = ({ currentUser }) => {
 
   // Переход к оплате
   const handlePayOrder = (order) => {
-    console.log('Переход к оплате заказа:', order.id, order.status);
-    
     if (order.status !== 'approved') {
       showNotification(`Заказ не готов к оплате. Текущий статус: ${orderStatuses[order.status]?.label}`);
       return;
@@ -315,7 +324,6 @@ const OrdersHistory = ({ currentUser }) => {
     }
 
     try {
-      // Переходим на страницу оплаты, передавая параметр fromOrdersList для возможности вернуться обратно
       navigate(`/payment/${order.id}`, { state: { fromOrdersList: true } });
     } catch (error) {
       console.error('Ошибка навигации к странице оплаты:', error);

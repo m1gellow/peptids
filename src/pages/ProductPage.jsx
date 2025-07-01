@@ -557,7 +557,7 @@ const ProductPage = () => {
         
         {/* Метки пептидов (теги) */}
         <div className="mt-8 pt-4 border-t border-divider">
-          <h3 className="text-lg font-semibold mb-3">Категории</h3>
+          <h3 className="text-lg font-semibold mb-3">Метки</h3>
           <div className="flex flex-wrap gap-2">
             {['Пептиды', 'Сигнальные пептиды', 'Ноотропы', 'Нейропептиды'].map((tag) => (
               <a

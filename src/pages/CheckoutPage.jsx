@@ -19,15 +19,12 @@ import {
   FiMap,
   FiX
 } from 'react-icons/fi';
-import { useCart } from '../contexts/CartContext'; // Импорт контекста корзины
-
+import { useCart } from '../contexts/CartContext';
 import Section from '../components/ui/Section';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { showNotification } from '../utils/telegramUtils';
 import supabase, { supabaseAnonKey, supabaseUrl } from '../lib/supabase';
-
-
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
@@ -52,14 +49,14 @@ const CheckoutPage = () => {
   const [showDimensions, setShowDimensions] = useState(false);
   const [searchCity, setSearchCity] = useState('');
   const [filteredCities, setFilteredCities] = useState([]);
+  const [isLoadingFromStorage, setIsLoadingFromStorage] = useState(true);
+  
   const addressTimeoutRef = useRef(null);
   const dimensionTimeoutRef = useRef(null);
   const citySearchTimeoutRef = useRef(null);
   
-  // Получаем функцию clearCart из контекста корзины
   const { clearCart } = useCart();
 
-  // Данные формы
   const [orderData, setOrderData] = useState({
     customerName: '',
     customerEmail: '',
@@ -76,30 +73,37 @@ const CheckoutPage = () => {
 
   const [formErrors, setFormErrors] = useState({});
 
-  // Генерация уникального номера заказа
+  // Загрузка сохраненных данных доставки из localStorage
+  useEffect(() => {
+    const savedDeliveryData = localStorage.getItem('deliveryData');
+    if (savedDeliveryData) {
+      try {
+        const { city, address } = JSON.parse(savedDeliveryData);
+        setOrderData(prev => ({
+          ...prev,
+          city: city || '',
+          deliveryAddress: address || ''
+        }));
+      } catch (e) {
+        console.error('Ошибка парсинга сохраненных данных доставки:', e);
+      }
+    }
+    setIsLoadingFromStorage(false);
+  }, []);
+
   const generateOrderNumber = () => {
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     return `ORD-${timestamp}-${random}`;
   };
 
-  // Расчёт веса товаров (оценочно)
   const calculateEstimatedWeight = () => {
-    // Базовый вес пустой посылки в граммах
     const baseWeight = 250;
-    
-    // Примерный вес одной единицы товара в граммах
-    // Для пептидов это обычно небольшие флаконы или пузырьки
     const itemWeightGrams = 100;
-    
-    // Суммируем количество товаров
     const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-    
-    // Рассчитываем общий вес
     return baseWeight + (totalItems * itemWeightGrams);
   };
 
-  // Загрузка данных о регионах и федеральных округах
   const loadRegionsData = async () => {
     setIsLoadingCities(true);
     try {
@@ -116,17 +120,14 @@ const CheckoutPage = () => {
 
       const data = await response.json();
       
-      // Сохраняем информацию о федеральных округах, если она доступна
       if (data.federalDistricts && Array.isArray(data.federalDistricts)) {
         setFederalDistricts(data.federalDistricts);
         
-        // По умолчанию выбираем первый федеральный округ
         if (data.federalDistricts.length > 0 && !selectedDistrict) {
           setSelectedDistrict(data.federalDistricts[0]);
           await loadDistrictCities(data.federalDistricts[0].name);
         }
       } else {
-        // Получаем все города из зональной статистики, если нет разделения по федеральным округам
         let allCities = [];
         const zoneStatistics = data.zoneStatistics || {};
         
@@ -139,7 +140,6 @@ const CheckoutPage = () => {
         if (allCities.length > 0) {
           setCities(allCities.sort());
         } else {
-          // Если нет данных о городах, используем запасной список
           setCities([
             'Москва', 
             'Санкт-Петербург', 
@@ -151,7 +151,6 @@ const CheckoutPage = () => {
       }
     } catch (error) {
       console.error('Ошибка загрузки данных о регионах:', error);
-      // Используем запасной список основных городов
       setCities([
         'Москва', 
         'Санкт-Петербург', 
@@ -169,7 +168,6 @@ const CheckoutPage = () => {
     }
   };
 
-  // Загрузка городов по федеральному округу
   const loadDistrictCities = async (districtName) => {
     if (!districtName) return;
     
@@ -189,7 +187,6 @@ const CheckoutPage = () => {
       const data = await response.json();
       
       if (data.cities && Array.isArray(data.cities)) {
-        // Извлекаем только названия городов и сортируем
         const cityNames = data.cities.map(city => city.name).sort();
         setCities(cityNames);
       } else {
@@ -198,7 +195,6 @@ const CheckoutPage = () => {
     } catch (error) {
       console.error(`Ошибка загрузки городов для округа "${districtName}":`, error);
       showNotification('Не удалось загрузить города. Используется ограниченный список городов.', 'Предупреждение');
-      // Используем запасной список
       setCities([
         'Москва', 
         'Санкт-Петербург', 
@@ -211,7 +207,6 @@ const CheckoutPage = () => {
     }
   };
 
-  // Поиск городов в текущем списке
   const searchCities = (query) => {
     if (!query) {
       setFilteredCities([]);
@@ -226,7 +221,6 @@ const CheckoutPage = () => {
     setFilteredCities(filtered.slice(0, 10));
   };
 
-  // Обработка ввода поиска города с дебаунсом
   const handleCitySearch = (value) => {
     setSearchCity(value);
     
@@ -239,14 +233,12 @@ const CheckoutPage = () => {
     }, 300);
   };
 
-  // Выбор города
   const selectCity = (city) => {
     setOrderData(prev => ({ ...prev, city }));
     setSearchCity('');
     setFilteredCities([]);
   };
 
-  // Расчет стоимости доставки
   const calculateDeliveryCost = async (toCity) => {
     if (!toCity) return;
     
@@ -256,10 +248,8 @@ const CheckoutPage = () => {
     setSelectedTariff(null);
     
     try {
-      // Рассчитываем примерный вес товаров
       const weight = calculateEstimatedWeight();
       
-      // Вызываем edge function для расчета стоимости
       const response = await fetch(`${supabaseUrl}/functions/v1/calculate-delivery`, {
         method: 'POST',
         headers: {
@@ -284,11 +274,9 @@ const CheckoutPage = () => {
         throw new Error('Не удалось получить тарифы доставки');
       }
       
-      // Сортируем тарифы по стоимости (от дешевого к дорогому)
       const sortedTariffs = [...data.tariffs].sort((a, b) => a.finalCost - b.finalCost);
       
       setAvailableTariffs(sortedTariffs);
-      // Выбираем самый дешевый тариф по умолчанию
       setSelectedTariff(sortedTariffs[0]);
       
       setDeliveryData({
@@ -299,10 +287,7 @@ const CheckoutPage = () => {
         destinationCity: data.destinationCity
       });
       
-      // Обновляем общую стоимость с учетом доставки
       updateTotalWithDelivery(sortedTariffs[0].finalCost);
-      
-      // Показываем форму ввода размеров
       setShowDimensions(true);
     } catch (error) {
       console.error('Ошибка расчета стоимости доставки:', error);
@@ -312,24 +297,18 @@ const CheckoutPage = () => {
     }
   };
 
-  // Обновление общей стоимости с учетом доставки
   const updateTotalWithDelivery = (deliveryCost) => {
-    // Обновляем общую стоимость
     setEstimatedTotal(prev => {
-      // Если у нас уже есть предыдущая доставка в стоимости, вычитаем ее
       const totalWithoutDelivery = selectedTariff ? prev - selectedTariff.finalCost : prev;
-      // Добавляем новую стоимость доставки
       return totalWithoutDelivery + deliveryCost;
     });
   };
 
-  // Выбор тарифа доставки
   const handleSelectTariff = (tariff) => {
     setSelectedTariff(tariff);
     updateTotalWithDelivery(tariff.finalCost);
   };
 
-  // Поиск адресов через DaData API
   const searchAddresses = async (query) => {
     if (!query || query.length < 3 || !orderData.city) {
       setAddressSuggestions([]);
@@ -339,7 +318,6 @@ const CheckoutPage = () => {
     setIsSearchingAddress(true);
     
     try {
-      // Используем заглушку с адресами для демонстрации
       const mockSuggestions = [
         {
           value: `${query}, ${orderData.city}, Россия`,
@@ -366,7 +344,6 @@ const CheckoutPage = () => {
     }
   };
 
-  // Обработка поиска адреса с дебаунсом
   const handleAddressSearch = (value) => {
     if (addressTimeoutRef.current) {
       clearTimeout(addressTimeoutRef.current);
@@ -377,16 +354,12 @@ const CheckoutPage = () => {
     }, 300);
   };
 
-  // Расчет предварительной стоимости
   const calculateEstimatedTotal = (items) => {
     let total = 0;
     items.forEach(item => {
-      // Сначала проверяем base_price как числовое значение
       if (item.product.base_price && !isNaN(parseFloat(item.product.base_price))) {
         total += parseFloat(item.product.base_price) * item.quantity;
-      } 
-      // Если base_price нет или он не число, пытаемся извлечь из price
-      else {
+      } else {
         const priceText = item.product.price || '';
         const matches = priceText.match(/[\d\s,]+/);
         if (matches) {
@@ -400,7 +373,6 @@ const CheckoutPage = () => {
     return total;
   };
 
-  // Анимация страницы
   const pageVariants = {
     initial: { opacity: 0 },
     animate: { 
@@ -413,7 +385,6 @@ const CheckoutPage = () => {
     }
   };
 
-  // Инициализация
   useEffect(() => {
     const initialize = async () => {
       try {
@@ -426,7 +397,6 @@ const CheckoutPage = () => {
 
         setCurrentUser(user);
 
-        // Получаем данные пользователя
         const { data: userData } = await supabase
           .from('users')
           .select('*')
@@ -441,10 +411,7 @@ const CheckoutPage = () => {
           }));
         }
 
-        // Загружаем корзину
         await loadCartItems(user.id);
-        
-        // Загружаем информацию о регионах и округах
         await loadRegionsData();
       } catch (error) {
         console.error('Ошибка инициализации:', error);
@@ -457,7 +424,6 @@ const CheckoutPage = () => {
     initialize();
   }, [navigate]);
 
-  // Очистка таймеров при размонтировании
   useEffect(() => {
     return () => {
       if (addressTimeoutRef.current) {
@@ -472,14 +438,12 @@ const CheckoutPage = () => {
     };
   }, []);
 
-  // Эффект для расчета стоимости доставки при изменении города
   useEffect(() => {
     if (orderData.city) {
       calculateDeliveryCost(orderData.city);
     }
   }, [orderData.city]);
 
-  // Загрузка корзины
   const loadCartItems = async (userId) => {
     try {
       const { data, error } = await supabase
@@ -506,8 +470,6 @@ const CheckoutPage = () => {
       }
 
       setCartItems(data);
-      
-      // Рассчитываем предварительную стоимость
       const estimated = calculateEstimatedTotal(data);
       setEstimatedTotal(estimated);
     } catch (error) {
@@ -516,7 +478,6 @@ const CheckoutPage = () => {
     }
   };
 
-  // Обработка изменений в форме
   const handleChange = (e) => {
     const { name, value } = e.target;
     setOrderData(prev => ({
@@ -524,7 +485,6 @@ const CheckoutPage = () => {
       [name]: value
     }));
 
-    // Убираем ошибку при вводе
     if (formErrors[name]) {
       setFormErrors(prev => ({
         ...prev,
@@ -532,14 +492,12 @@ const CheckoutPage = () => {
       }));
     }
 
-    // Поиск адресов при вводе
     if (name === 'deliveryAddress') {
       handleAddressSearch(value);
       setShowSuggestions(value.length >= 3);
     }
   };
 
-  // Выбор адреса из подсказок
   const handleAddressSelect = (address) => {
     setOrderData(prev => ({
       ...prev,
@@ -549,7 +507,6 @@ const CheckoutPage = () => {
     setAddressSuggestions([]);
   };
 
-  // Валидация формы
   const validateForm = () => {
     const errors = {};
 
@@ -583,7 +540,6 @@ const CheckoutPage = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Создание заказа (отправка на одобрение)
   const handleCreateOrder = async () => {
     if (!validateForm()) {
       return;
@@ -592,13 +548,9 @@ const CheckoutPage = () => {
     setIsSubmitting(true);
 
     try {
-      // Генерируем уникальный номер заказа на клиенте
       const orderNumber = generateOrderNumber();
-
-      // Рассчитываем общую стоимость заказа
       const totalAmount = estimatedTotal > 0 ? estimatedTotal : null;
 
-      // Подготавливаем данные заказа
       const orderPayload = {
         user_id: currentUser.id,
         order_number: orderNumber,
@@ -609,21 +561,22 @@ const CheckoutPage = () => {
         notes: orderData.notes,
         status: 'pending_approval',
         currency: 'RUB',
-        total_amount: totalAmount // Устанавливаем общую стоимость
+        total_amount: totalAmount
       };
       
-      // Проверяем и добавляем стоимость доставки
+      // Сохраняем данные доставки в localStorage
+      localStorage.setItem('deliveryData', JSON.stringify({
+        city: orderData.city,
+        address: orderData.deliveryAddress
+      }));
+
       if (selectedTariff) {
-        // Убедимся, что стоимость доставки - это число и оно > 0
         const deliveryCost = parseFloat(selectedTariff.finalCost);
         if (!isNaN(deliveryCost) && deliveryCost > 0) {
-          // Сохраняем стоимость доставки отдельным полем
           orderPayload.delivery_cost = deliveryCost;
           
-          // Добавляем информацию о доставке в примечания
           const dimensionsText = `${orderData.dimensions.length}x${orderData.dimensions.width}x${orderData.dimensions.height} см`;
           
-          // Добавляем зону доставки, если она есть
           const zoneInfo = deliveryData?.destinationCity?.zone ? 
             `Зона доставки: ${deliveryData.destinationCity.zone}` : '';
           
@@ -639,17 +592,9 @@ const CheckoutPage = () => {
           ].filter(Boolean).join('\n');
           
           orderPayload.notes = `${orderPayload.notes || ''}${deliveryInfo}`;
-          
-          console.log('Стоимость доставки:', deliveryCost, 'руб.', 
-                      'Тариф:', selectedTariff.tariffName);
-        } else {
-          console.warn('Некорректная стоимость доставки:', selectedTariff.finalCost);
         }
       }
 
-      console.log('Создание заказа с данными:', orderPayload);
-
-      // Создаем заказ со статусом "pending_approval"
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert([orderPayload])
@@ -658,11 +603,7 @@ const CheckoutPage = () => {
 
       if (orderError) throw orderError;
 
-      console.log('Заказ создан:', order);
-
-      // Добавляем товары в заказ
       const orderItems = cartItems.map(item => {
-        // Определяем цену товара для сохранения в заказе
         let unitPrice = null;
         if (item.product.base_price && !isNaN(parseFloat(item.product.base_price))) {
           unitPrice = parseFloat(item.product.base_price);
@@ -693,14 +634,9 @@ const CheckoutPage = () => {
         .insert(orderItems);
 
       if (itemsError) throw itemsError;
-
-      console.log('Товары добавлены в заказ');
       
-      // Очищаем корзину пользователя после успешного создания заказа
       await clearCart();
-      console.log('Корзина очищена');
 
-      // Сообщение с учетом данных о доставке
       let successMessage = `Заказ ${order.order_number} создан и отправлен на рассмотрение менеджеру. `;
       
       if (estimatedTotal > 0) {
@@ -713,13 +649,11 @@ const CheckoutPage = () => {
       
       successMessage += `Вы получите уведомление после одобрения.`;
 
-      // Показываем уведомление об успешном создании заказа
       showNotification(
         successMessage,
         'Заказ отправлен на рассмотрение'
       );
 
-      // Перенаправляем в профиль на вкладку заказов
       navigate('/profile?tab=orders');
 
     } catch (error) {
@@ -730,10 +664,8 @@ const CheckoutPage = () => {
     }
   };
 
-  // Изменение габаритов посылки
   const handleDimensionChange = (e) => {
     const { name, value } = e.target;
-    // Преобразуем строку в число, минимальное значение 1
     const numValue = Math.max(1, parseInt(value) || 1);
     
     setOrderData(prev => ({
@@ -744,7 +676,6 @@ const CheckoutPage = () => {
       }
     }));
     
-    // Если уже выбран город, пересчитываем стоимость доставки с задержкой
     if (orderData.city) {
       if (dimensionTimeoutRef.current) {
         clearTimeout(dimensionTimeoutRef.current);
@@ -756,11 +687,9 @@ const CheckoutPage = () => {
     }
   };
 
-  // Выбор федерального округа
   const handleDistrictChange = async (district) => {
     setSelectedDistrict(district);
     await loadDistrictCities(district.name);
-    // Сбрасываем выбранный город при смене округа
     setOrderData(prev => ({ ...prev, city: '' }));
     setSearchCity('');
     setFilteredCities([]);
@@ -788,7 +717,6 @@ const CheckoutPage = () => {
       exit="exit"
       className="fade-in"
     >
-      {/* Header */}
       <div className="relative bg-gradient-to-r from-primary to-primary-dark py-6">
         <div className="container mx-auto px-4">
           <Button
@@ -809,7 +737,6 @@ const CheckoutPage = () => {
 
       <Section variant="default" className="py-6">
         <div className="max-w-md mx-auto space-y-6">
-          {/* Информационное сообщение */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-start">
               <FiAlertCircle className="text-blue-600 mt-0.5 mr-3 flex-shrink-0" size={16} />
@@ -826,7 +753,6 @@ const CheckoutPage = () => {
             </div>
           </div>
 
-          {/* Форма контактных данных */}
           <div className="bg-white p-6 rounded-lg shadow-card">
             <h3 className="text-lg font-semibold mb-4">Контактные данные</h3>
             
@@ -865,7 +791,6 @@ const CheckoutPage = () => {
               required
             />
 
-            {/* Федеральные округа */}
             {federalDistricts.length > 0 && (
               <div className="mb-4">
                 <label className="block mb-1.5 text-sm font-medium text-text-secondary">
@@ -899,58 +824,14 @@ const CheckoutPage = () => {
               </div>
             )}
 
-            {/* Поиск и выбор города с автокомплитом */}
             <div className="mb-4">
               <label className={`block mb-1.5 text-sm font-medium ${formErrors.city ? 'text-error' : 'text-text-secondary'}`}>
                 Город доставки<span className="text-error ml-1">*</span>
               </label>
               
-              <div className="relative mb-2">
-                <div className="relative">
-                  <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-light" size={16} />
-                  <input
-                    type="text"
-                    value={searchCity}
-                    onChange={(e) => handleCitySearch(e.target.value)}
-                    placeholder="Поиск города"
-                    className={`
-                      w-full rounded-md border border-divider
-                      focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
-                      transition-all duration-200 bg-white text-text placeholder:text-text-light text-sm pl-10 pr-10 py-3
-                    `}
-                  />
-                  {searchCity && (
-                    <button 
-                      onClick={() => {
-                        setSearchCity('');
-                        setFilteredCities([]);
-                      }}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-text transition-colors"
-                    >
-                      <FiX size={16} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Подсказки городов */}
-                {filteredCities.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-divider rounded-md shadow-lg max-h-60 overflow-y-auto">
-                    {filteredCities.map((city, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        className="w-full text-left px-3 py-2 hover:bg-primary-bg transition-colors border-b border-divider last:border-b-0"
-                        onClick={() => selectCity(city)}
-                      >
-                        {city}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              
-              {/* Выбранный город или выпадающий список */}
-              {orderData.city ? (
+              {isLoadingFromStorage ? (
+                <div className="animate-pulse h-12 bg-gray-100 rounded-md"></div>
+              ) : orderData.city ? (
                 <div className="bg-primary-bg p-3 rounded-lg flex justify-between items-center">
                   <div>
                     <span className="font-medium text-primary-dark">{orderData.city}</span>
@@ -969,20 +850,54 @@ const CheckoutPage = () => {
                   </button>
                 </div>
               ) : (
+                <div className="relative mb-2">
+                  <div className="relative">
+                    <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-light" size={16} />
+                    <input
+                      type="text"
+                      value={searchCity}
+                      onChange={(e) => handleCitySearch(e.target.value)}
+                      placeholder="Поиск города"
+                      className="w-full rounded-md border border-divider focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 bg-white text-text placeholder:text-text-light text-sm pl-10 pr-10 py-3"
+                    />
+                    {searchCity && (
+                      <button 
+                        onClick={() => {
+                          setSearchCity('');
+                          setFilteredCities([]);
+                        }}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-text transition-colors"
+                      >
+                        <FiX size={16} />
+                      </button>
+                    )}
+                  </div>
+
+                  {filteredCities.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-divider rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      {filteredCities.map((city, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          className="w-full text-left px-3 py-2 hover:bg-primary-bg transition-colors border-b border-divider last:border-b-0"
+                          onClick={() => selectCity(city)}
+                        >
+                          {city}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {!orderData.city && !isLoadingFromStorage && (
                 <div className="relative">
                   <FiMapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-light" size={16} />
                   <select
                     name="city"
                     value={orderData.city}
                     onChange={handleChange}
-                    className={`
-                      w-full pl-10 pr-4 py-3
-                      border ${formErrors.city ? 'border-error' : 'border-divider'} rounded-lg
-                      focus:outline-none focus:ring-2 ${formErrors.city ? 'focus:ring-error/50' : 'focus:ring-primary/50'} ${formErrors.city ? 'focus:border-error' : 'focus:border-primary'}
-                      bg-white text-text placeholder:text-text-secondary
-                      text-sm transition-all duration-200
-                      appearance-none
-                    `}
+                    className={`w-full pl-10 pr-4 py-3 border ${formErrors.city ? 'border-error' : 'border-divider'} rounded-lg focus:outline-none focus:ring-2 ${formErrors.city ? 'focus:ring-error/50' : 'focus:ring-primary/50'} ${formErrors.city ? 'focus:border-error' : 'focus:border-primary'} bg-white text-text placeholder:text-text-secondary text-sm transition-all duration-200 appearance-none`}
                     disabled={isLoadingCities}
                   >
                     <option value="">Выберите город из списка</option>
@@ -1008,7 +923,6 @@ const CheckoutPage = () => {
                 <p className="mt-1 text-xs text-error">{formErrors.city}</p>
               )}
               
-              {/* Информация о расчете доставки */}
               {isCalculatingDelivery && (
                 <div className="mt-2 flex items-center text-xs text-text-secondary">
                   <div className="animate-spin w-3 h-3 border-2 border-primary border-t-transparent rounded-full mr-2"></div>
@@ -1016,7 +930,6 @@ const CheckoutPage = () => {
                 </div>
               )}
               
-              {/* Информация о зоне доставки */}
               {deliveryData?.destinationCity?.zone && (
                 <div className="mt-2 bg-blue-50 rounded-lg p-2 text-xs text-blue-700">
                   <div className="flex items-start">
@@ -1030,64 +943,60 @@ const CheckoutPage = () => {
               )}
             </div>
 
-            {/* Поле адреса с автокомплитом */}
             <div className="mb-4 relative">
               <label className={`block mb-1.5 text-sm font-medium ${formErrors.deliveryAddress ? 'text-error' : 'text-text-secondary'}`}>
                 Адрес доставки<span className="text-error ml-1">*</span>
               </label>
-              <div className="relative">
+              {isLoadingFromStorage ? (
+                <div className="animate-pulse h-12 bg-gray-100 rounded-md"></div>
+              ) : (
                 <div className="relative">
-                  <FiMapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-light" size={16} />
-                  <input
-                    type="text"
-                    name="deliveryAddress"
-                    value={orderData.deliveryAddress}
-                    onChange={handleChange}
-                    onFocus={() => orderData.deliveryAddress.length >= 3 && setShowSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                    placeholder="Улица, дом, квартира"
-                    className={`
-                      w-full rounded-md border ${formErrors.deliveryAddress ? 'border-error' : 'border-divider'}
-                      focus:outline-none focus:ring-2 ${formErrors.deliveryAddress ? 'focus:ring-error/50' : 'focus:ring-primary/50'} 
-                      ${formErrors.deliveryAddress ? 'focus:border-error' : 'focus:border-primary'}
-                      transition-all duration-200 bg-white text-text placeholder:text-text-light text-sm pl-10 pr-10 py-3
-                    `}
-                  />
-                  {isSearchingAddress && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div>
+                  <div className="relative">
+                    <FiMapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-light" size={16} />
+                    <input
+                      type="text"
+                      name="deliveryAddress"
+                      value={orderData.deliveryAddress}
+                      onChange={handleChange}
+                      onFocus={() => orderData.deliveryAddress.length >= 3 && setShowSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                      placeholder="Улица, дом, квартира"
+                      className={`w-full rounded-md border ${formErrors.deliveryAddress ? 'border-error' : 'border-divider'} focus:outline-none focus:ring-2 ${formErrors.deliveryAddress ? 'focus:ring-error/50' : 'focus:ring-primary/50'} ${formErrors.deliveryAddress ? 'focus:border-error' : 'focus:border-primary'} transition-all duration-200 bg-white text-text placeholder:text-text-light text-sm pl-10 pr-10 py-3`}
+                    />
+                    {isSearchingAddress && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {formErrors.deliveryAddress && (
+                    <p className="mt-1 text-xs text-error">{formErrors.deliveryAddress}</p>
+                  )}
+
+                  {showSuggestions && addressSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-divider rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      {addressSuggestions.map((suggestion, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-divider last:border-b-0 text-sm"
+                          onClick={() => handleAddressSelect(suggestion)}
+                        >
+                          <div className="font-medium">{suggestion.value}</div>
+                          {suggestion.unrestricted_value && suggestion.unrestricted_value !== suggestion.value && (
+                            <div className="text-xs text-text-secondary mt-1">
+                              {suggestion.unrestricted_value}
+                            </div>
+                          )}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
-                
-                {formErrors.deliveryAddress && (
-                  <p className="mt-1 text-xs text-error">{formErrors.deliveryAddress}</p>
-                )}
-
-                {/* Подсказки адресов */}
-                {showSuggestions && addressSuggestions.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-divider rounded-md shadow-lg max-h-60 overflow-y-auto">
-                    {addressSuggestions.map((suggestion, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-divider last:border-b-0 text-sm"
-                        onClick={() => handleAddressSelect(suggestion)}
-                      >
-                        <div className="font-medium">{suggestion.value}</div>
-                        {suggestion.unrestricted_value && suggestion.unrestricted_value !== suggestion.value && (
-                          <div className="text-xs text-text-secondary mt-1">
-                            {suggestion.unrestricted_value}
-                          </div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
 
-            {/* Габариты посылки */}
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-medium text-text-secondary">
@@ -1157,7 +1066,6 @@ const CheckoutPage = () => {
               )}
             </div>
 
-            {/* Тарифы доставки */}
             {availableTariffs.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
@@ -1248,7 +1156,6 @@ const CheckoutPage = () => {
             </Button>
           </div>
 
-          {/* Информация о товарах */}
           <div className="bg-white p-4 rounded-lg shadow-card">
             <h4 className="font-medium mb-3">Товары в заказе:</h4>
             <div className="max-h-60 overflow-y-auto">
@@ -1271,7 +1178,6 @@ const CheckoutPage = () => {
               ))}
             </div>
             <div className="pt-3 mt-3 border-t border-divider">
-              {/* Стоимость товаров */}
               <div className="flex justify-between items-center">
                 <span className="text-sm">Стоимость товаров:</span>
                 <span className="text-sm">
@@ -1283,7 +1189,6 @@ const CheckoutPage = () => {
                 </span>
               </div>
               
-              {/* Стоимость доставки */}
               <div className="flex justify-between items-center mt-1">
                 <span className="text-sm">Доставка:</span>
                 <span className="text-sm">
@@ -1293,7 +1198,6 @@ const CheckoutPage = () => {
                 </span>
               </div>
               
-              {/* Итого */}
               <div className="flex justify-between items-center font-medium mt-2 pt-2 border-t border-dashed border-divider">
                 <span>Предварительная стоимость:</span>
                 <span className="text-primary">
@@ -1301,7 +1205,6 @@ const CheckoutPage = () => {
                 </span>
               </div>
               
-              {/* Информация о сроках доставки */}
               {selectedTariff && (
                 <div className="mt-2 text-xs text-text-secondary flex items-center">
                   <FiCalendar size={12} className="mr-1" />
@@ -1321,7 +1224,6 @@ const CheckoutPage = () => {
             </div>
           </div>
 
-          {/* Тайминги */}
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="flex items-start">
               <FiClock className="text-yellow-600 mt-0.5 mr-2" size={16} />
@@ -1343,7 +1245,6 @@ const CheckoutPage = () => {
   );
 };
 
-// Функция для склонения слова "дней"
 function getWordDays(number) {
   const cases = [2, 0, 1, 1, 1, 2];
   const titles = ['день', 'дня', 'дней'];
