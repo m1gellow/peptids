@@ -1,13 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
-import { createClient } from '@supabase/supabase-js';
 import Card from '../ui/Card';
-
-// Создаем клиента Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import supabase from '../../lib/supabase';
 
 const ArticlesList = () => {
   const [articles, setArticles] = useState([]);

@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { FiSend, FiX, FiUser, FiMail, FiMessageSquare } from 'react-icons/fi';
-import { createClient } from '@supabase/supabase-js';
-
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { showNotification } from '../../utils/telegramUtils';
+import supabase from '../../lib/supabase';
 
-// Создаем клиента Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const FeedbackForm = ({ 
   isOpen, 

@@ -15,16 +15,12 @@ import {
   FiShield,
   FiX
 } from 'react-icons/fi';
-import { createClient } from '@supabase/supabase-js';
 
 import Section from '../components/ui/Section';
 import Button from '../components/ui/Button';
 import { showNotification, showConfirmation } from '../utils/telegramUtils';
+import supabase from '../lib/supabase';
 
-// Создаем клиента Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const PaymentPage = () => {
   const { orderId } = useParams();

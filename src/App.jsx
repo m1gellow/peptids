@@ -29,11 +29,8 @@ import PaymentPage from './pages/PaymentPage';
 import PrivacyPage from './pages/PrivacyPage';
 import ArticlesListPage from './pages/ArticlesListPage';
 import ArticlePage from './pages/ArticlePage';
+import supabase from './lib/supabase';
 
-// Инициализация Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 function App() {
   const location = useLocation();

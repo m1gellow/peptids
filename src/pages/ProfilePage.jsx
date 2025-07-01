@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { FiUser, FiHeart, FiShoppingCart, FiClock, FiEdit, FiLogOut, FiPackage, FiCreditCard, FiMail, FiCopy, FiCamera, FiUpload, FiSave, FiX, FiKey, FiMessageSquare } from 'react-icons/fi';
-import { createClient } from '@supabase/supabase-js';
 import { useCart } from '../contexts/CartContext';
 import { useLocation } from 'react-router-dom';
 
@@ -15,11 +14,8 @@ import OrdersHistory from '../components/orders/OrdersHistory';
 import UserFeedbackList from '../components/feedback/UserFeedbackList';
 import { showNotification, showConfirmation } from '../utils/telegramUtils';
 import { uploadImageFromUrl, uploadFile } from '../utils/storageUtils';
+import supabase from '../lib/supabase';
 
-// Создаем клиента Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const ProfilePage = ({ currentUser, onLogout }) => {
   const [activeTab, setActiveTab] = useState('profile');

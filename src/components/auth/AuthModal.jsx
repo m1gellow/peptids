@@ -1,16 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FiX, FiUser, FiMail, FiLock, FiMessageSquare, FiCopy } from 'react-icons/fi';
-import { createClient } from '@supabase/supabase-js';
 import WebApp from '@twa-dev/sdk';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { showNotification } from '../../utils/telegramUtils';
 import { uploadImageFromUrl } from '../../utils/storageUtils';
+import supabase from '../../lib/supabase'
 
-// Создаем клиента Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
   const [authMode, setAuthMode] = useState('login'); // login, register, forgot

@@ -1,16 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { createClient } from '@supabase/supabase-js';
 import { FiShoppingCart, FiTrash2, FiMinus, FiPlus } from 'react-icons/fi';
 import { useCart } from '../../contexts/CartContext';
 import { showNotification } from '../../utils/telegramUtils';
 import Button from '../ui/Button';
+import supabase from '../../lib/supabase';
 
-// Создаем клиента Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const ProductSamples = () => {
   const [products, setProducts] = useState([]);

@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiSearch, FiCalendar, FiClock } from 'react-icons/fi';
-import { createClient } from '@supabase/supabase-js';
 
 import Section from '../components/ui/Section';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import supabase from '../lib/supabase';
 
-// Создаем клиента Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
 
 const ArticlesListPage = () => {
   const [articles, setArticles] = useState([]);

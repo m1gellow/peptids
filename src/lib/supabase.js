@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Получение переменных окружения
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Проверка наличия переменных окружения
 if (!supabaseUrl || !supabaseAnonKey) {

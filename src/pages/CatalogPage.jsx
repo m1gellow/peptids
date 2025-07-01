@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FiFilter, FiChevronDown, FiChevronUp, FiMessageSquare, FiTag, FiInfo } from 'react-icons/fi';
-import { createClient } from '@supabase/supabase-js';
+import { FiFilter, FiChevronDown, FiMessageSquare, FiTag } from 'react-icons/fi';
 
 import Section from '../components/ui/Section';
 import Button from '../components/ui/Button';
@@ -18,11 +17,8 @@ import SwipeGuide from '../components/ui/SwipeGuide';
 import { showNotification } from '../utils/telegramUtils';
 import { AdvancedSearch } from '../utils/searchUtils';
 import { useCart } from '../contexts/CartContext';
+import supabase from '../lib/supabase';
 
-// Создаем клиента Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function CatalogPage() {
   // Состояния поиска и фильтров

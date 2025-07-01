@@ -1,17 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FiSearch, FiShoppingCart, FiUser, FiLogOut, FiMenu, FiHome, FiGrid, FiLayers, FiInfo, FiX, FiRefreshCw } from 'react-icons/fi';
-import { createClient } from '@supabase/supabase-js';
 import WebApp from '@twa-dev/sdk';
-
 import { showConfirmation, showNotification } from '../../utils/telegramUtils';
 import NotificationBell from '../ui/NotificationBell';
-import { useCart } from '../../contexts/CartContext'; // Импорт контекста корзины
+import { useCart } from '../../contexts/CartContext'; 
 
-// Создаем клиента Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const Header = ({ onOpenAuthModal, currentUser, onLogout }) => {
   const [isScrolled, setIsScrolled] = useState(false);

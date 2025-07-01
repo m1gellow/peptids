@@ -1,14 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiMessageSquare, FiChevronDown, FiChevronUp, FiClock, FiCheckCircle, FiAlertCircle, FiXCircle, FiSend } from 'react-icons/fi';
-import { createClient } from '@supabase/supabase-js';
 
 import Button from '../ui/Button';
+import supabase from '../../lib/supabase';
 
-// Создаем клиента Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const UserFeedbackList = ({ currentUser }) => {
   const [feedbackItems, setFeedbackItems] = useState([]);

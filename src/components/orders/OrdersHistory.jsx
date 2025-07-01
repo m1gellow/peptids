@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FiChevronDown, FiChevronUp, FiPackage } from 'react-icons/fi';
-import { createClient } from '@supabase/supabase-js';
 
 import Button from '../ui/Button';
 import OrderStatistics from './OrderStatistics';
@@ -18,11 +17,8 @@ import {
   canOrderBeCancelled,
   canRemoveItemsFromOrder
 } from '../../utils/orderUtils';
+import supabase from '../../lib/supabase';
 
-// Инициализация Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
  * Основной компонент истории заказов

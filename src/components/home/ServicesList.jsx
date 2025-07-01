@@ -13,12 +13,8 @@ import {
   FiActivity,
   FiMessageSquare
 } from 'react-icons/fi';
-import { createClient } from '@supabase/supabase-js';
+import supabase from '../../lib/supabase';
 
-// Создаем клиента Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Маппинг иконок
 const iconMap = {

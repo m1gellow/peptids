@@ -11,7 +11,6 @@ import {
   FiChevronRight,
   FiInfo
 } from 'react-icons/fi';
-import { createClient } from '@supabase/supabase-js';
 import WebApp from '@twa-dev/sdk';
 
 import Section from '../components/ui/Section';
@@ -20,11 +19,9 @@ import FeedbackForm from '../components/feedback/FeedbackForm';
 import ProductDetails from '../components/catalog/ProductDetails';
 import { showNotification } from '../utils/telegramUtils';
 import { useCart } from '../contexts/CartContext';
+import supabase from '../lib/supabase';
 
-// Создаем клиента Supabase (глобальный для страницы)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
 
 const ProductPage = () => {
   const { id } = useParams();
